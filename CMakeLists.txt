@@ -12,3 +12,14 @@ enable_language (Fortran)
 
 file(GLOB SOURCES src/*.f90)
 add_library(${PROJECT_NAME} ${SOURCES})
+
+target_compile_definitions(${PROJECT_NAME}
+  PRIVATE ${PARALLAX_COMPILE_DEFINITIONS})
+
+target_compile_options(${PROJECT_NAME}
+  PUBLIC
+  ${Fortran_FLAGS}
+  $<$<CONFIG:Debug>:${Fortran_FLAGS_DEBUG}>
+  $<$<CONFIG:Release>:${Fortran_FLAGS_RELEASE}>
+  )
+
