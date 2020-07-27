@@ -409,7 +409,7 @@
 
     implicit none
 
-    class(bspline_2d),intent(inout) :: me
+    class(bspline_2d),intent(in) :: me
     real(wp),intent(in)             :: xval  !! \(x\) coordinate of evaluation point.
     real(wp),intent(in)             :: yval  !! \(y\) coordinate of evaluation point.
     integer(ip),intent(in)           :: idx   !! \(x\) derivative of piecewise polynomial to evaluate.
@@ -417,17 +417,13 @@
     real(wp),intent(out)            :: f     !! interpolated value
     integer(ip),intent(out)         :: iflag !! status flag (see [[db2val]])
 
-        call db2val(xval,yval,&
-                    idx,idy,&
-                    me%tx,me%ty,&
-                    me%nx,me%ny,&
-                    me%kx,me%ky,&
-                    me%bcoef,f,iflag,&
-                    me%inbvx,me%inbvy,me%iloy,&
-                me%work_val_1,me%work_val_2&
-                )
-
-    iflag = iflag
+    call db2val(xval,yval,&
+                idx,idy,&
+                me%tx,me%ty,&
+                me%nx,me%ny,&
+                me%kx,me%ky,&
+                me%bcoef,f,iflag &
+            )
 
     end subroutine evaluate_2d
 !*****************************************************************************************

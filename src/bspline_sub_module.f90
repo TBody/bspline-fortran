@@ -239,7 +239,7 @@
 !  * JEC : 000330 modified array declarations.
 !  * Jacob Williams, 2/24/2015 : extensive refactoring of CMLIB routine.
 
-    pure subroutine db2val(xval,yval,idx,idy,tx,ty,nx,ny,kx,ky,bcoef,f,iflag,inbvx,inbvy,iloy,w1,w0,extrap)
+    pure subroutine db2val(xval,yval,idx,idy,tx,ty,nx,ny,kx,ky,bcoef,f,iflag)
 
     implicit none
 
@@ -267,23 +267,20 @@
                                                      !!
                                                      !! * \( = 0 \)   : no errors
                                                      !! * \( \ne 0 \) : error
-    integer(ip),intent(inout)            :: inbvx    !! initialization parameter which must be set to 1
-                                                     !! the first time this routine is called,
-                                                     !! and must not be changed by the user.
-    integer(ip),intent(inout)            :: inbvy    !! initialization parameter which must be set to 1
-                                                     !! the first time this routine is called,
-                                                     !! and must not be changed by the user.
-    integer(ip),intent(inout)            :: iloy     !! initialization parameter which must be set to 1
-                                                     !! the first time this routine is called,
-                                                     !! and must not be changed by the user.
-    real(wp),dimension(ky),intent(inout)              :: w1 !! work array
-    real(wp),dimension(3_ip*max(kx,ky)),intent(inout) :: w0 !! work array
-    logical,intent(in),optional          :: extrap   !! if extrapolation is allowed
-                                                     !! (if not present, default is False)
-
+    integer(ip)            :: inbvx
+    integer(ip)            :: inbvy
+    integer(ip)            :: iloy
+    real(wp),dimension(ky)               :: w1 !! work array
+    real(wp),dimension(3_ip*max(kx,ky))  :: w0 !! work array
+    
+    logical :: extrap
     integer(ip) :: k, lefty, kcol
 
     f = 0.0_wp
+    inbvx = 1
+    inbvy = 1
+    iloy = 1
+    extrap = .false.
 
     iflag = check_value(xval,tx,1_ip,extrap); if (iflag/=0_ip) return
     iflag = check_value(yval,ty,2_ip,extrap); if (iflag/=0_ip) return
