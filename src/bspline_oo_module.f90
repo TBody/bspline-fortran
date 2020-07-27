@@ -26,7 +26,6 @@
         !! Base class for the b-spline types
         private
         integer(ip) :: inbvx = 1_ip  !! internal variable used by [[dbvalu]] for efficient processing
-        integer(ip) :: iflag = 1_ip  !! saved `iflag` from the list routine call.
         logical :: initialized = .false. !! true if the class is initialized and ready to use
         logical :: extrap = .false. !! if true, then extrapolation is allowed during evaluation
     contains
@@ -38,7 +37,6 @@
         procedure,public,non_overridable :: status_ok  !! returns true if the last `iflag` status code was `=0`.
         procedure,public,non_overridable :: status_message => get_bspline_status_message  !! retrieve the last
                                                                                           !! status message
-        procedure,public,non_overridable :: clear_flag => clear_bspline_flag  !! to reset the `iflag` saved in the class.
     end type bspline_class
 
     abstract interface
@@ -50,13 +48,13 @@
         class(bspline_class),intent(inout) :: me
         end subroutine destroy_func
 
-        pure function size_func(me) result(s)
+        pure subroutine size_func(me, s)
         !! interface for size routines
         import :: bspline_class,ip
         implicit none
         class(bspline_class),intent(in) :: me
-        integer(ip) :: s !! size of the structure in bits
-        end function size_func
+        integer(ip), INTENT(OUT) :: s !! size of the structure in bits
+        end subroutine size_func
 
     end interface
 
@@ -112,73 +110,50 @@
 !  Note: after an error condition, the [[clear_bspline_flag]] routine
 !  can be called to reset the `iflag` to 0.
 
-    elemental function status_ok(me) result(ok)
+    pure subroutine status_ok(me, iflag, ok)
 
     implicit none
 
     class(bspline_class),intent(in) :: me
-    logical                         :: ok
+    logical, INTENT(OUT)            :: ok
+    integer, intent(in)             :: iflag
 
-    ok = ( me%iflag == 0_ip )
+    ok = ( iflag == 0_ip )
 
-    end function status_ok
-!*****************************************************************************************
-
-!*****************************************************************************************
-!>
-!  This sets the `iflag` variable in the class to `0`
-!  (which indicates that everything is OK). It can be used
-!  after an error is encountered.
-
-    elemental subroutine clear_bspline_flag(me)
-
-    implicit none
-
-    class(bspline_class),intent(inout) :: me
-
-    me%iflag = 0_ip
-
-    end subroutine clear_bspline_flag
+    end subroutine status_ok
 !*****************************************************************************************
 
 !*****************************************************************************************
 !>
 !  Get the status message from a [[bspline_class]] routine call.
 !
-!  If `iflag` is not included, then the one in the class is used (which
-!  corresponds to the last routine called.)
-!  Otherwise, it will convert the
-!  input `iflag` argument into the appropriate message.
+!  Convert the input `iflag` argument into the appropriate message.
 !
 !  This is a wrapper for [[get_status_message]].
 
-    pure function get_bspline_status_message(me,iflag) result(msg)
+    pure subroutine get_bspline_status_message(me, iflag, msg)
 
     implicit none
 
     class(bspline_class),intent(in) :: me
-    character(len=:),allocatable    :: msg    !! status message associated with the flag
-    integer(ip),intent(in),optional :: iflag  !! the corresponding status code
+    character(len=:),INTENT(OUT),ALLOCATABLE :: msg    !! status message associated with the flag
+    integer(ip),intent(in) :: iflag  !! the corresponding status code
 
-    if (present(iflag)) then
-        msg = get_status_message(iflag)
-    else
-        msg = get_status_message(me%iflag)
-    end if
+    call get_status_message(iflag, msg)
 
-    end function get_bspline_status_message
+    end subroutine get_bspline_status_message
 !*****************************************************************************************
 
 !*****************************************************************************************
 !>
 !  Actual size of a [[bspline_2d]] structure in bits.
 
-    pure function size_2d(me) result(s)
+    pure subroutine size_2d(me, s)
 
     implicit none
 
     class(bspline_2d),intent(in) :: me
-    integer(ip) :: s !! size of the structure in bits
+    integer(ip), INTENT(OUT) :: s !! size of the structure in bits
 
     s = 2_ip*int_size + logical_size + 6_ip*int_size
 
@@ -189,7 +164,7 @@
     if (allocated(me%work_val_1)) s = s + real_size*size(me%work_val_1,kind=ip)
     if (allocated(me%work_val_2)) s = s + real_size*size(me%work_val_2,kind=ip)
 
-    end function size_2d
+    end subroutine size_2d
 !*****************************************************************************************
 
 !*****************************************************************************************
@@ -204,7 +179,6 @@
     class(bspline_class),intent(inout) :: me
 
     me%inbvx = 1_ip
-    me%iflag = 1_ip
     me%initialized = .false.
     me%extrap = .false.
 
@@ -272,13 +246,13 @@
 !  needs to be called before it can be used.
 !  Not really that useful except perhaps in some OpenMP applications.
 
-    elemental function bspline_2d_constructor_empty() result(me)
+    pure subroutine bspline_2d_constructor_empty(me)
 
     implicit none
 
-    type(bspline_2d) :: me
+    type(bspline_2d), intent(out) :: me
 
-    end function bspline_2d_constructor_empty
+    end subroutine bspline_2d_constructor_empty
 !*****************************************************************************************
 
 !*****************************************************************************************
@@ -286,11 +260,11 @@
 !  Constructor for a [[bspline_2d]] type (auto knots).
 !  This is a wrapper for [[initialize_2d_auto_knots]].
 
-    pure function bspline_2d_constructor_auto_knots(x,y,fcn,kx,ky,extrap) result(me)
+    pure subroutine bspline_2d_constructor_auto_knots(me,x,y,fcn,kx,ky,iflag,extrap)
 
     implicit none
 
-    type(bspline_2d)                   :: me
+    type(bspline_2d), intent(out)      :: me
     real(wp),dimension(:),intent(in)   :: x     !! `(nx)` array of \(x\) abcissae. Must be strictly increasing.
     real(wp),dimension(:),intent(in)   :: y     !! `(ny)` array of \(y\) abcissae. Must be strictly increasing.
     real(wp),dimension(:,:),intent(in) :: fcn   !! `(nx,ny)` matrix of function values to interpolate.
@@ -302,12 +276,13 @@
     integer(ip),intent(in)             :: ky    !! The order of spline pieces in \(y\)
                                                 !! ( \( 2 \le k_y < n_y \) )
                                                 !! (order = polynomial degree + 1)
+    integer,intent(out)              :: iflag   !! Status flag
     logical,intent(in),optional      :: extrap  !! if true, then extrapolation is allowed
                                                 !! (default is false)
 
-    call initialize_2d_auto_knots(me,x,y,fcn,kx,ky,me%iflag,extrap)
+    call initialize_2d_auto_knots(me,x,y,fcn,kx,ky,iflag,extrap)
 
-    end function bspline_2d_constructor_auto_knots
+    end subroutine bspline_2d_constructor_auto_knots
 !*****************************************************************************************
 
 !*****************************************************************************************
@@ -315,11 +290,11 @@
 !  Constructor for a [[bspline_2d]] type (user-specified knots).
 !  This is a wrapper for [[initialize_2d_specify_knots]].
 
-    pure function bspline_2d_constructor_specify_knots(x,y,fcn,kx,ky,tx,ty,extrap) result(me)
+    pure subroutine bspline_2d_constructor_specify_knots(me,x,y,fcn,kx,ky,tx,ty,iflag,extrap)
 
     implicit none
 
-    type(bspline_2d)                   :: me
+    type(bspline_2d), intent(out)      :: me
     real(wp),dimension(:),intent(in)   :: x     !! `(nx)` array of \(x\) abcissae. Must be strictly increasing.
     real(wp),dimension(:),intent(in)   :: y     !! `(ny)` array of \(y\) abcissae. Must be strictly increasing.
     real(wp),dimension(:,:),intent(in) :: fcn   !! `(nx,ny)` matrix of function values to interpolate.
@@ -337,12 +312,13 @@
     real(wp),dimension(:),intent(in)   :: ty    !! The `(ny+ky)` knots in the \(y\) direction
                                                 !! for the spline interpolant.
                                                 !! Must be non-decreasing.
+    integer,intent(out)              :: iflag   !! Status flag
     logical,intent(in),optional      :: extrap  !! if true, then extrapolation is allowed
                                                 !! (default is false)
 
-    call initialize_2d_specify_knots(me,x,y,fcn,kx,ky,tx,ty,me%iflag,extrap)
+    call initialize_2d_specify_knots(me,x,y,fcn,kx,ky,tx,ty,iflag,extrap)
 
-    end function bspline_2d_constructor_specify_knots
+    end subroutine bspline_2d_constructor_specify_knots
 !*****************************************************************************************
 
 !*****************************************************************************************
@@ -399,7 +375,7 @@
     end if
 
     me%initialized = iflag==0_ip
-    me%iflag = iflag
+    iflag = iflag
 
     end subroutine initialize_2d_auto_knots
 !*****************************************************************************************
@@ -470,7 +446,7 @@
     end if
 
     me%initialized = iflag==0_ip
-    me%iflag = iflag
+    iflag = iflag
 
     end subroutine initialize_2d_specify_knots
 !*****************************************************************************************
@@ -505,7 +481,7 @@
         iflag = 1_ip
     end if
 
-    me%iflag = iflag
+    iflag = iflag
 
     end subroutine evaluate_2d
 !*****************************************************************************************

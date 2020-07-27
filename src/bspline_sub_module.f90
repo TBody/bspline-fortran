@@ -1850,12 +1850,12 @@
 !>
 !  Returns a message string associated with the status code.
 
-    pure function get_status_message(iflag) result(msg)
+    pure subroutine get_status_message(iflag, msg)
 
     implicit none
 
     integer(ip),intent(in)       :: iflag  !! return code from one of the routines
-    character(len=:),allocatable :: msg    !! status message associated with the flag
+    character(len=:),intent(out),ALLOCATABLE :: msg    !! status message associated with the flag
 
     character(len=10) :: istr   !! for integer to string conversion
     integer(ip)       :: istat  !! for write statement
@@ -1973,7 +1973,7 @@
         msg = 'Unknown status flag: '//trim(adjustl(istr))
     end select
 
-    end function get_status_message
+    end subroutine get_status_message
 !*****************************************************************************************
 
 !*****************************************************************************************
