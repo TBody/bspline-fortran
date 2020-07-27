@@ -26,12 +26,9 @@
         !! Base class for the b-spline types
         private
         integer(ip) :: inbvx = 1_ip  !! internal variable used by [[dbvalu]] for efficient processing
-        logical :: initialized = .false. !! true if the class is initialized and ready to use
-        logical :: extrap = .false. !! if true, then extrapolation is allowed during evaluation
     contains
         private
         procedure,non_overridable :: destroy_base  !! destructor for the abstract type
-        procedure,non_overridable :: set_extrap_flag !! internal routine to set the `extrap` flag
         procedure(destroy_func),deferred,public :: destroy  !! destructor
         procedure(size_func),deferred,public :: size_of !! size of the structure in bits
         procedure,public,non_overridable :: status_ok  !! returns true if the last `iflag` status code was `=0`.
@@ -80,10 +77,9 @@
         procedure,public :: evaluate => evaluate_2d
         procedure,public :: destroy => destroy_2d
         procedure,public :: size_of => size_2d
-        final :: finalize_2d
     end type bspline_2d
 
-    interface bspline_2d
+    interface create_bspline_2d
         !! Constructor for [[bspline_2d(type)]]
         procedure :: bspline_2d_constructor_empty,&
                      bspline_2d_constructor_auto_knots,&
@@ -179,8 +175,6 @@
     class(bspline_class),intent(inout) :: me
 
     me%inbvx = 1_ip
-    me%initialized = .false.
-    me%extrap = .false.
 
     end subroutine destroy_base
 !*****************************************************************************************
@@ -214,34 +208,6 @@
 
 !*****************************************************************************************
 !>
-!  Finalizer for [[bspline_2d]] class. Just a wrapper for [[destroy_2d]].
-    pure elemental subroutine finalize_2d(me)
-        type(bspline_2d),intent(inout) :: me; call me%destroy()
-    end subroutine finalize_2d
-!*****************************************************************************************
-
-!*****************************************************************************************
-!>
-!  Sets the `extrap` flag in the class.
-
-    pure subroutine set_extrap_flag(me,extrap)
-
-    implicit none
-
-    class(bspline_class),intent(inout) :: me
-    logical,intent(in),optional :: extrap  !! if not present, then False is used
-
-    if (present(extrap)) then
-        me%extrap = extrap
-    else
-        me%extrap = .false.
-    end if
-
-    end subroutine set_extrap_flag
-!*****************************************************************************************
-
-!*****************************************************************************************
-!>
 !  It returns an empty [[bspline_2d]] type. Note that INITIALIZE still
 !  needs to be called before it can be used.
 !  Not really that useful except perhaps in some OpenMP applications.
@@ -260,7 +226,7 @@
 !  Constructor for a [[bspline_2d]] type (auto knots).
 !  This is a wrapper for [[initialize_2d_auto_knots]].
 
-    pure subroutine bspline_2d_constructor_auto_knots(me,x,y,fcn,kx,ky,iflag,extrap)
+    pure subroutine bspline_2d_constructor_auto_knots(me,x,y,fcn,kx,ky,iflag)
 
     implicit none
 
@@ -277,10 +243,8 @@
                                                 !! ( \( 2 \le k_y < n_y \) )
                                                 !! (order = polynomial degree + 1)
     integer,intent(out)              :: iflag   !! Status flag
-    logical,intent(in),optional      :: extrap  !! if true, then extrapolation is allowed
-                                                !! (default is false)
 
-    call initialize_2d_auto_knots(me,x,y,fcn,kx,ky,iflag,extrap)
+    call initialize_2d_auto_knots(me,x,y,fcn,kx,ky,iflag)
 
     end subroutine bspline_2d_constructor_auto_knots
 !*****************************************************************************************
@@ -290,7 +254,7 @@
 !  Constructor for a [[bspline_2d]] type (user-specified knots).
 !  This is a wrapper for [[initialize_2d_specify_knots]].
 
-    pure subroutine bspline_2d_constructor_specify_knots(me,x,y,fcn,kx,ky,tx,ty,iflag,extrap)
+    pure subroutine bspline_2d_constructor_specify_knots(me,x,y,fcn,kx,ky,tx,ty,iflag)
 
     implicit none
 
@@ -313,10 +277,8 @@
                                                 !! for the spline interpolant.
                                                 !! Must be non-decreasing.
     integer,intent(out)              :: iflag   !! Status flag
-    logical,intent(in),optional      :: extrap  !! if true, then extrapolation is allowed
-                                                !! (default is false)
 
-    call initialize_2d_specify_knots(me,x,y,fcn,kx,ky,tx,ty,iflag,extrap)
+    call initialize_2d_specify_knots(me,x,y,fcn,kx,ky,tx,ty,iflag)
 
     end subroutine bspline_2d_constructor_specify_knots
 !*****************************************************************************************
@@ -326,7 +288,7 @@
 !  Initialize a [[bspline_2d]] type (with automatically-computed knots).
 !  This is a wrapper for [[db2ink]].
 
-    pure subroutine initialize_2d_auto_knots(me,x,y,fcn,kx,ky,iflag,extrap)
+    pure subroutine initialize_2d_auto_knots(me,x,y,fcn,kx,ky,iflag)
 
     implicit none
 
@@ -343,8 +305,6 @@
                                                 !! ( \( 2 \le k_y < n_y \) )
                                                 !! (order = polynomial degree + 1)
     integer(ip),intent(out)            :: iflag !! status flag (see [[db2ink]])
-    logical,intent(in),optional        :: extrap !! if true, then extrapolation is allowed
-                                                 !! (default is false)
 
     integer(ip) :: iknot
     integer(ip) :: nx,ny
@@ -370,11 +330,6 @@
 
     call db2ink(x,nx,y,ny,fcn,kx,ky,iknot,me%tx,me%ty,me%bcoef,iflag)
 
-    if (iflag==0_ip) then
-        call me%set_extrap_flag(extrap)
-    end if
-
-    me%initialized = iflag==0_ip
     iflag = iflag
 
     end subroutine initialize_2d_auto_knots
@@ -385,7 +340,7 @@
 !  Initialize a [[bspline_2d]] type (with user-specified knots).
 !  This is a wrapper for [[db2ink]].
 
-    pure subroutine initialize_2d_specify_knots(me,x,y,fcn,kx,ky,tx,ty,iflag,extrap)
+    pure subroutine initialize_2d_specify_knots(me,x,y,fcn,kx,ky,tx,ty,iflag)
 
     implicit none
 
@@ -408,8 +363,6 @@
                                                 !! for the spline interpolant.
                                                 !! Must be non-decreasing.
     integer(ip),intent(out)            :: iflag !! status flag (see [[db2ink]])
-    logical,intent(in),optional      :: extrap  !! if true, then extrapolation is allowed
-                                                !! (default is false)
 
     integer(ip) :: nx,ny
 
@@ -441,11 +394,8 @@
 
         call db2ink(x,nx,y,ny,fcn,kx,ky,1_ip,me%tx,me%ty,me%bcoef,iflag)
 
-        call me%set_extrap_flag(extrap)
-
     end if
 
-    me%initialized = iflag==0_ip
     iflag = iflag
 
     end subroutine initialize_2d_specify_knots
@@ -467,7 +417,6 @@
     real(wp),intent(out)            :: f     !! interpolated value
     integer(ip),intent(out)         :: iflag !! status flag (see [[db2val]])
 
-    if (me%initialized) then
         call db2val(xval,yval,&
                     idx,idy,&
                     me%tx,me%ty,&
@@ -475,11 +424,8 @@
                     me%kx,me%ky,&
                     me%bcoef,f,iflag,&
                     me%inbvx,me%inbvy,me%iloy,&
-                    me%work_val_1,me%work_val_2,&
-                    extrap=me%extrap)
-    else
-        iflag = 1_ip
-    end if
+                me%work_val_1,me%work_val_2&
+                )
 
     iflag = iflag
 
